@@ -58,18 +58,32 @@ function cloneTC() {
 
     if [ $COMPILER = "neutron" ];
     then
-    mkdir Neutron
-    curl -s https://api.github.com/repos/Neutron-Toolchains/clang-build-catalogue/releases/135899675/assets \
-    | grep "browser_download_url.*tar.zst" \
-    | cut -d : -f 2,3 \
-    | tr -d \" \
-    | wget --output-document=Neutron.tar.zst -qi -
-    tar -xvf Neutron.tar.zst -C Neutron/
-    
-    export KERNEL_CLANG="clang"
-    export KERNEL_CLANG_PATH="${KERNEL_DIR}/Neutron"
-    export PATH="$KERNEL_CLANG_PATH/bin:$PATH"
-    
+
+if [ ! -e Neutron ]; then
+echo 'mkdir Neutron'
+mkdir Neutron
+elif [ ! -d Neutron ]; then
+echo '$(pwd)/Neutron is not a directory'
+exit 1
+fi
+echo 'Setting up Neutron in $(pwd)/Neutron'
+cd Neutron
+echo 'Download antman and sync'
+bash <(curl -s "https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman") -S
+echo 'Clone libarchive for bsdtar'
+git clone https://github.com/libarchive/libarchive || true
+#sudo apt install -y pkg-config m4 libtool automake autoconf
+cd libarchive
+echo 'Build libarchive'
+bash build/autogen.sh
+./configure
+make -j$(nproc)
+cd ..
+echo 'Patch for glibc'
+PATH=$(pwd)/libarchive:$PATH bash <(curl -s "https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman") --patch=glibc
+cd ..
+echo 'Done'
+  
 	fi
 	
     # Clone AnyKernel
@@ -113,10 +127,10 @@ function exports() {
         
         # Export ARCH and SUBARCH
         export ARCH=arm64
-        export SUBARCH=arm64
+        # export SUBARCH=arm64
         
         # Export Local Version
-        #export LOCALVERSION="-${VERSION}"
+        # export LOCALVERSION="-${VERSION}"
         
         # KBUILD HOST and USER
         export KBUILD_BUILD_HOST=Pancali
@@ -142,31 +156,13 @@ function compile() {
 START=$(date +"%s")
 		
 	# Compile
-	make O=out ARCH=arm64 ${DEFCONFIG}
-	
-	if [ -d ${KERNEL_DIR}/clang ];
+	make O=out ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- LLVM=1 ${DEFCONFIG}
+
+	if [ -d ${KERNEL_DIR}/Neutron ];
 	   then
 	       make -kj$(nproc --all) O=out \
 	       ARCH=arm64 \
-	       CC=$KERNEL_CLANG \
-           CROSS_COMPILE=$KERNEL_CCOMPILE64 \
-           CROSS_COMPILE_ARM32=$KERNEL_CCOMPILE32 \
-           LD=${LINKER} \
-           LLVM=1 \
-           LLVM_IAS=1 \
-           #AR=llvm-ar \
-	       #NM=llvm-nm \
-	       #OBJCOPY=llvm-objcopy \
-	       #OBJDUMP=llvm-objdump \
-	       #STRIP=llvm-strip \
-	       #OBJSIZE=llvm-size \
-	       V=$VERBOSE 2>&1 | tee error.log
-	       
-	elif [ -d ${KERNEL_DIR}/Neutron ];
-	   then
-	       make -kj$(nproc --all) O=out \
-	       ARCH=arm64 \
-	       CC=$KERNEL_CLANG \
+	       #CC=$KERNEL_CLANG \
 	       CROSS_COMPILE=aarch64-linux-gnu- \
 	       #CLANG_TRIPLE=aarch64-linux-gnu- \
 	       #LD=${LINKER} \
