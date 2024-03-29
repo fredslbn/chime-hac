@@ -156,16 +156,16 @@ function compile() {
 START=$(date +"%s")
 		
 	# Compile
-	make O=out ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- LLVM=1 ${DEFCONFIG}
+	make O=out ARCH=arm64 ${DEFCONFIG}
 
 	if [ -d ${KERNEL_DIR}/Neutron ];
 	   then
 	       make -kj$(nproc --all) O=out \
 	       ARCH=arm64 \
-	       #CC=$KERNEL_CLANG \
+	       CC=clang \
 	       CROSS_COMPILE=aarch64-linux-gnu- \
-	       #CLANG_TRIPLE=aarch64-linux-gnu- \
-	       #LD=${LINKER} \
+	       CLANG_TRIPLE=aarch64-linux-gnu- \
+	       LD=${LINKER} \
 	       LLVM=1 \
 	       #LLVM_IAS=1 \
 	       #AS=llvm-as \
